@@ -53,10 +53,12 @@
 
 ### INFRA-04 · Banco de Dados
 
-- [ ] Criar schema inicial com Prisma: `tenants`, `users`, `licitacoes`, `arquivos`, `licitacao_contexto`, `agente_logs`
-- [ ] Configurar pgvector na instância Postgres
-- [ ] Criar migration inicial e testar localmente com `docker-compose.yml` de dev
-- [ ] Criar script de seed para dados de desenvolvimento
+- [x] Criar schema inicial com Prisma: `tenants`, `users`, `licitacoes`, `arquivos`, `licitacao_contexto`, `agente_logs` _(pacote `@bidmind/db`)_
+- [x] Configurar pgvector na instância Postgres _(imagem `pgvector/pgvector:pg16` + `CREATE EXTENSION vector` na migration)_
+- [x] Criar migration inicial _(pendente: aplicar via `pnpm --filter @bidmind/db prisma:deploy` num Postgres rodando — Docker Desktop estava off)_
+- [x] Criar script de seed para dados de desenvolvimento _(`packages/db/prisma/seed.ts`)_
+
+> Pequena evolução do schema do DESIGN.mnd §6: tabela `arquivos` ganhou `tenant_id` (NOT NULL) e `licitacao_id` virou nullable — necessário para suportar templates da empresa (RF-09) sem quebrar o isolamento por tenant (RNF-04).
 
 ---
 

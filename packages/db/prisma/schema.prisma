@@ -1,0 +1,163 @@
+// =============================================================================
+// BidMind — Prisma schema
+// Espelha o DESIGN.mnd §6 com a única evolução: `arquivos.tenant_id` (NOT NULL)
+// para cobrir templates da empresa (RF-09), e `licitacao_id` nullable.
+// =============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector] // pgvector — usado para futuras embeddings de chunks
+}
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  admin
+  analista
+}
+
+enum LicitacaoStatus {
+  aguardando_edital
+  analisando_edital
+  elaborando_proposta_tecnica
+  montando_orcamento
+  revisao_humana
+  concluido
+}
+
+enum ArquivoTipo {
+  edital
+  proposta_tecnica
+  orcamento
+  template
+}
+
+enum AgenteStatus {
+  running
+  success
+  error
+}
+
+// -----------------------------------------------------------------------------
+// Tenants e usuários
+// -----------------------------------------------------------------------------
+
+model Tenant {
+  id        String   @id @default(uuid()) @db.Uuid
+  nome      String   @db.VarChar(255)
+  plano     String   @default("free") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  users      User[]
+  licitacoes Licitacao[]
+  arquivos   Arquivo[]
+
+  @@map("tenants")
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  email     String   @unique @db.VarChar(255)
+  role      UserRole @default(analista)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant            Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  licitacoesCriadas Licitacao[] @relation("LicitacaoCreatedBy")
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+// -----------------------------------------------------------------------------
+// Licitações
+// -----------------------------------------------------------------------------
+
+model Licitacao {
+  id              String          @id @default(uuid()) @db.Uuid
+  tenantId        String          @map("tenant_id") @db.Uuid
+  titulo          String          @db.VarChar(500)
+  orgaoLicitante  String?         @map("orgao_licitante") @db.VarChar(500)
+  prazoProposta   DateTime?       @map("prazo_proposta")
+  status          LicitacaoStatus @default(aguardando_edital)
+  createdById     String          @map("created_by") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User               @relation("LicitacaoCreatedBy", fields: [createdById], references: [id])
+  arquivos  Arquivo[]
+  contexto  LicitacaoContexto?
+  agenteLogs AgenteLog[]
+
+  @@index([tenantId, status])
+  @@index([prazoProposta])
+  @@map("licitacoes")
+}
+
+// -----------------------------------------------------------------------------
+// Arquivos (editais, propostas, orçamentos, templates)
+// `tenantId` sempre presente; `licitacaoId` nulo para templates (RF-09).
+// -----------------------------------------------------------------------------
+
+model Arquivo {
+  id            String      @id @default(uuid()) @db.Uuid
+  tenantId      String      @map("tenant_id") @db.Uuid
+  licitacaoId   String?     @map("licitacao_id") @db.Uuid
+  tipo          ArquivoTipo
+  storageKey    String      @map("storage_key") @db.VarChar(1024)
+  nomeOriginal  String      @map("nome_original") @db.VarChar(500)
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  licitacao Licitacao? @relation(fields: [licitacaoId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, tipo])
+  @@index([licitacaoId])
+  @@map("arquivos")
+}
+
+// -----------------------------------------------------------------------------
+// Contexto compartilhado entre agentes
+// 1:1 com licitação. Campos JSONB com saídas dos agentes.
+// -----------------------------------------------------------------------------
+
+model LicitacaoContexto {
+  id                  String   @id @default(uuid()) @db.Uuid
+  licitacaoId         String   @unique @map("licitacao_id") @db.Uuid
+  editalEstruturado   Json?    @map("edital_estruturado")
+  propostaTecnica     Json?    @map("proposta_tecnica")
+  orcamento           Json?
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  licitacao Licitacao @relation(fields: [licitacaoId], references: [id], onDelete: Cascade)
+
+  @@map("licitacao_contexto")
+}
+
+// -----------------------------------------------------------------------------
+// Logs dos agentes (RNF-06: auditoria de prompts/respostas)
+// -----------------------------------------------------------------------------
+
+model AgenteLog {
+  id          String       @id @default(uuid()) @db.Uuid
+  licitacaoId String       @map("licitacao_id") @db.Uuid
+  agente      Int          @db.SmallInt
+  status      AgenteStatus
+  prompt      String?      @db.Text
+  resposta    String?      @db.Text
+  duracaoMs   Int?         @map("duracao_ms")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  licitacao Licitacao @relation(fields: [licitacaoId], references: [id], onDelete: Cascade)
+
+  @@index([licitacaoId, agente, createdAt])
+  @@map("agente_logs")
+}

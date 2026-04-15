@@ -1,0 +1,46 @@
+# =============================================================================
+# BidMind · stack de desenvolvimento local
+# Sobe Postgres (com pgvector) + Redis para os apps rodarem em watch.
+#
+# Uso:
+#   docker compose -f docker-compose.dev.yml up -d
+#   docker compose -f docker-compose.dev.yml down
+# =============================================================================
+
+name: bidmind-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bidmind
+      POSTGRES_PASSWORD: bidmind
+      POSTGRES_DB: bidmind
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - bidmind_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bidmind"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - bidmind_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  bidmind_pg_data:
+  bidmind_redis_data:
