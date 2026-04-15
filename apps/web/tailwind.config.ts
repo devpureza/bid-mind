@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import animate from "tailwindcss-animate";
 
 // Palette/radii seguem o padrão shadcn/ui para manter compatibilidade
 // com componentes que formos trazendo ao longo dos marcos.
@@ -50,7 +51,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [animate],
 };
 
 export default config;
