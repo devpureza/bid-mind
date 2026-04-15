@@ -1,8 +1,7 @@
-export default function HomePage() {
-  return (
-    <main style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
-      <h1>BidMind</h1>
-      <p>Placeholder — UI será implementada em AUTH-02 / KANBAN-01.</p>
-    </main>
-  );
+import { redirect } from "next/navigation";
+
+export default function RootPage() {
+  // Landing ainda não existe no escopo v1 (DESIGN.mnd §5 entra direto no Kanban).
+  // Manda para /dashboard — o middleware redireciona para /login se não houver sessão.
+  redirect("/dashboard");
 }

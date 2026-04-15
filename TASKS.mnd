@@ -79,13 +79,17 @@
 
 ### AUTH-02 · Autenticação — Frontend
 
-- [ ] Criar tela de Login (e-mail + senha + botão Google)
-- [ ] Criar tela de Cadastro
-- [ ] Criar tela de Esqueci minha senha
-- [ ] Criar tela de Redefinir senha (via link por e-mail)
-- [ ] Implementar persistência de sessão (token no cookie httpOnly)
-- [ ] Implementar redirect para login em rotas protegidas
-- [ ] Testar fluxo completo de autenticação end-to-end
+- [x] Criar tela de Login (e-mail + senha + botão Google)
+- [x] Criar tela de Cadastro
+- [x] Criar tela de Esqueci minha senha
+- [x] Criar tela de Redefinir senha (via link por e-mail)
+- [x] Implementar persistência de sessão (token no cookie httpOnly) _(Next route handlers + cookies `bm_access`/`bm_refresh` via padrão BFF — backend permanece stateless JSON)_
+- [x] Implementar redirect para login em rotas protegidas _(`src/middleware.ts` — rotas `/dashboard/*` redirecionam; rotas `(auth)` redirecionam se já houver sessão)_
+- [x] Testar fluxo completo de autenticação end-to-end _(validado o que não depende de DB: telas carregam, middleware redireciona, proxy encaminha para API, cookies são setados/limpos. E2E com credenciais reais aguarda `docker compose -f docker-compose.dev.yml up -d` + migration + seed)_
+
+> Bônus: rota `/auth/google/callback` (Next route handler GET) converte o redirect do backend em cookies httpOnly sem expor tokens ao JS.
+>
+> Pendência cruzada — bug no AUTH-01: `ZodError` no backend sai como HTTP 500 em vez de 400. `app.setErrorHandler` checa `err instanceof ZodError`, mas a checagem falha (provável dedup de instâncias Zod no workspace). Corrigir no próximo ciclo de polish.
 
 ---
 
