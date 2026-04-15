@@ -217,9 +217,11 @@ agente_logs (
 - **Unstructured.io** — extração de texto de PDFs complexos
 
 ### Dados e Storage
-- **PostgreSQL 16** + **pgvector**
+- **PostgreSQL 16** + **pgvector** (staging/produção)
 - **Redis 7**
 - **Cloudflare R2** — armazenamento de arquivos
+
+> **Dev local (Marcos 1 e 2):** SQLite via Prisma (`file:./dev.db`) para destravar o desenvolvimento sem depender de Docker. Migration Postgres original preservada em `packages/db/prisma/migrations.postgres.archive/`. No Marco 3 (AGENT1-01) o banco de dev volta a ser Postgres porque o Agente 1 precisa de embeddings (pgvector) e os workers usam Redis/BullMQ.
 
 ### Infra
 - **Docker** + **Docker Compose**

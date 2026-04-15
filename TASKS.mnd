@@ -54,11 +54,13 @@
 ### INFRA-04 · Banco de Dados
 
 - [x] Criar schema inicial com Prisma: `tenants`, `users`, `licitacoes`, `arquivos`, `licitacao_contexto`, `agente_logs` _(pacote `@bidmind/db`)_
-- [x] Configurar pgvector na instância Postgres _(imagem `pgvector/pgvector:pg16` + `CREATE EXTENSION vector` na migration)_
-- [x] Criar migration inicial _(pendente: aplicar via `pnpm --filter @bidmind/db prisma:deploy` num Postgres rodando — Docker Desktop estava off)_
-- [x] Criar script de seed para dados de desenvolvimento _(`packages/db/prisma/seed.ts`)_
+- [x] Configurar pgvector na instância Postgres _(imagem `pgvector/pgvector:pg16` + `CREATE EXTENSION vector` na migration original — arquivada em `migrations.postgres.archive/` até o Marco 3)_
+- [x] Criar migration inicial _(aplicada no SQLite de dev — ver nota abaixo)_
+- [x] Criar script de seed para dados de desenvolvimento _(`packages/db/prisma/seed.ts`, usa argon2; admin@bidmind.local / bidmind123)_
 
 > Pequena evolução do schema do DESIGN.mnd §6: tabela `arquivos` ganhou `tenant_id` (NOT NULL) e `licitacao_id` virou nullable — necessário para suportar templates da empresa (RF-09) sem quebrar o isolamento por tenant (RNF-04).
+>
+> **Divergência temporária do DESIGN.mnd §7 — SQLite em dev.** Para destravar o desenvolvimento local sem Docker Desktop, trocamos `provider = "postgresql"` por `"sqlite"` em `packages/db/prisma/schema.prisma`. Conversões: enums→String (Prisma não suporta enum em SQLite; valores continuam tipados em `packages/types`), sem `@db.Uuid`/`@db.VarChar`/`@db.Text`, sem extensão `vector`. Migration Postgres original preservada em `prisma/migrations.postgres.archive/`. **Voltar para Postgres no Marco 3 (AGENT1-01 precisa pgvector + Redis/BullMQ).** Staging/produção seguem Postgres (comando comentado em `.env.example`).
 
 ---
 

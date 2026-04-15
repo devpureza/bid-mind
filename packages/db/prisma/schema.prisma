@@ -1,49 +1,26 @@
 // =============================================================================
-// BidMind — Prisma schema
-// Espelha o DESIGN.mnd §6 com a única evolução: `arquivos.tenant_id` (NOT NULL)
-// para cobrir templates da empresa (RF-09), e `licitacao_id` nullable.
+// BidMind — Prisma schema (SQLite, ambiente de dev)
+//
+// ATENÇÃO: isto é a variante DEV. O DESIGN.mnd §7 manda Postgres 16 + pgvector;
+// ao chegar no Marco 3 (AGENT1-01 precisa embeddings + BullMQ/Redis), voltamos
+// para o schema original. O snapshot Postgres está preservado em
+// `prisma/migrations.postgres.archive/` para referência e re-aplicação.
+//
+// Divergências em relação ao DESIGN.mnd §6, só pra suportar SQLite:
+//   • `provider = "sqlite"` (era "postgresql" + extensão `vector`)
+//   • Sem `@db.Uuid`, `@db.VarChar`, `@db.Text`, `@db.SmallInt` (SQLite é TEXT/INTEGER)
+//   • Enums convertidos em `String` — Prisma não suporta enum com SQLite
+//     (os valores válidos continuam tipados em `packages/types/src/index.ts`)
+//   • `Json` vira TEXT com serialização automática do Prisma
 // =============================================================================
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider   = "postgresql"
-  url        = env("DATABASE_URL")
-  extensions = [vector] // pgvector — usado para futuras embeddings de chunks
-}
-
-// -----------------------------------------------------------------------------
-// Enums
-// -----------------------------------------------------------------------------
-
-enum UserRole {
-  admin
-  analista
-}
-
-enum LicitacaoStatus {
-  aguardando_edital
-  analisando_edital
-  elaborando_proposta_tecnica
-  montando_orcamento
-  revisao_humana
-  concluido
-}
-
-enum ArquivoTipo {
-  edital
-  proposta_tecnica
-  orcamento
-  template
-}
-
-enum AgenteStatus {
-  running
-  success
-  error
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 // -----------------------------------------------------------------------------
@@ -51,9 +28,9 @@ enum AgenteStatus {
 // -----------------------------------------------------------------------------
 
 model Tenant {
-  id        String   @id @default(uuid()) @db.Uuid
-  nome      String   @db.VarChar(255)
-  plano     String   @default("free") @db.VarChar(50)
+  id        String   @id @default(uuid())
+  nome      String
+  plano     String   @default("free")
   createdAt DateTime @default(now()) @map("created_at")
 
   users      User[]
@@ -64,13 +41,13 @@ model Tenant {
 }
 
 model User {
-  id           String    @id @default(uuid()) @db.Uuid
-  tenantId     String    @map("tenant_id") @db.Uuid
-  email        String    @unique @db.VarChar(255)
-  role         UserRole  @default(analista)
-  passwordHash String?   @map("password_hash") @db.VarChar(255) // null quando user veio só por OAuth
-  nome         String?   @db.VarChar(255)
-  createdAt    DateTime  @default(now()) @map("created_at")
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  email        String   @unique
+  role         String   @default("analista") // UserRole em packages/types
+  passwordHash String?  @map("password_hash") // null quando user veio só por OAuth
+  nome         String?
+  createdAt    DateTime @default(now()) @map("created_at")
 
   tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   licitacoesCriadas Licitacao[]     @relation("LicitacaoCreatedBy")
@@ -82,9 +59,9 @@ model User {
 }
 
 model PasswordReset {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  tokenHash String    @unique @map("token_hash") @db.VarChar(255)
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
   expiresAt DateTime  @map("expires_at")
   usedAt    DateTime? @map("used_at")
   createdAt DateTime  @default(now()) @map("created_at")
@@ -96,10 +73,10 @@ model PasswordReset {
 }
 
 model OauthAccount {
-  id             String   @id @default(uuid()) @db.Uuid
-  userId         String   @map("user_id") @db.Uuid
-  provider       String   @db.VarChar(50) // "google" por enquanto
-  providerUserId String   @map("provider_user_id") @db.VarChar(255)
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  provider       String // "google" por enquanto
+  providerUserId String   @map("provider_user_id")
   createdAt      DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -114,19 +91,19 @@ model OauthAccount {
 // -----------------------------------------------------------------------------
 
 model Licitacao {
-  id              String          @id @default(uuid()) @db.Uuid
-  tenantId        String          @map("tenant_id") @db.Uuid
-  titulo          String          @db.VarChar(500)
-  orgaoLicitante  String?         @map("orgao_licitante") @db.VarChar(500)
-  prazoProposta   DateTime?       @map("prazo_proposta")
-  status          LicitacaoStatus @default(aguardando_edital)
-  createdById     String          @map("created_by") @db.Uuid
-  createdAt       DateTime        @default(now()) @map("created_at")
+  id             String    @id @default(uuid())
+  tenantId       String    @map("tenant_id")
+  titulo         String
+  orgaoLicitante String?   @map("orgao_licitante")
+  prazoProposta  DateTime? @map("prazo_proposta")
+  status         String    @default("aguardando_edital") // LicitacaoStatus em packages/types
+  createdById    String    @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
 
-  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdBy User               @relation("LicitacaoCreatedBy", fields: [createdById], references: [id])
-  arquivos  Arquivo[]
-  contexto  LicitacaoContexto?
+  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy  User               @relation("LicitacaoCreatedBy", fields: [createdById], references: [id])
+  arquivos   Arquivo[]
+  contexto   LicitacaoContexto?
   agenteLogs AgenteLog[]
 
   @@index([tenantId, status])
@@ -140,13 +117,13 @@ model Licitacao {
 // -----------------------------------------------------------------------------
 
 model Arquivo {
-  id            String      @id @default(uuid()) @db.Uuid
-  tenantId      String      @map("tenant_id") @db.Uuid
-  licitacaoId   String?     @map("licitacao_id") @db.Uuid
-  tipo          ArquivoTipo
-  storageKey    String      @map("storage_key") @db.VarChar(1024)
-  nomeOriginal  String      @map("nome_original") @db.VarChar(500)
-  createdAt     DateTime    @default(now()) @map("created_at")
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  licitacaoId  String?  @map("licitacao_id")
+  tipo         String // ArquivoTipo em packages/types
+  storageKey   String   @map("storage_key")
+  nomeOriginal String   @map("nome_original")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   licitacao Licitacao? @relation(fields: [licitacaoId], references: [id], onDelete: Cascade)
@@ -158,16 +135,16 @@ model Arquivo {
 
 // -----------------------------------------------------------------------------
 // Contexto compartilhado entre agentes
-// 1:1 com licitação. Campos JSONB com saídas dos agentes.
+// 1:1 com licitação. Campos JSON (TEXT em SQLite) com saídas dos agentes.
 // -----------------------------------------------------------------------------
 
 model LicitacaoContexto {
-  id                  String   @id @default(uuid()) @db.Uuid
-  licitacaoId         String   @unique @map("licitacao_id") @db.Uuid
-  editalEstruturado   Json?    @map("edital_estruturado")
-  propostaTecnica     Json?    @map("proposta_tecnica")
-  orcamento           Json?
-  updatedAt           DateTime @updatedAt @map("updated_at")
+  id                String   @id @default(uuid())
+  licitacaoId       String   @unique @map("licitacao_id")
+  editalEstruturado Json?    @map("edital_estruturado")
+  propostaTecnica   Json?    @map("proposta_tecnica")
+  orcamento         Json?
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   licitacao Licitacao @relation(fields: [licitacaoId], references: [id], onDelete: Cascade)
 
@@ -179,14 +156,14 @@ model LicitacaoContexto {
 // -----------------------------------------------------------------------------
 
 model AgenteLog {
-  id          String       @id @default(uuid()) @db.Uuid
-  licitacaoId String       @map("licitacao_id") @db.Uuid
-  agente      Int          @db.SmallInt
-  status      AgenteStatus
-  prompt      String?      @db.Text
-  resposta    String?      @db.Text
-  duracaoMs   Int?         @map("duracao_ms")
-  createdAt   DateTime     @default(now()) @map("created_at")
+  id          String   @id @default(uuid())
+  licitacaoId String   @map("licitacao_id")
+  agente      Int // 1 | 2 | 3
+  status      String // AgenteStatus em packages/types
+  prompt      String?
+  resposta    String?
+  duracaoMs   Int?     @map("duracao_ms")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   licitacao Licitacao @relation(fields: [licitacaoId], references: [id], onDelete: Cascade)
 
