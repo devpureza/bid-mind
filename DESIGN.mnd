@@ -1,0 +1,303 @@
+# BidMind — Design (v0.1)
+
+## 1. Visão Geral do Produto
+
+**BidMind** é uma plataforma SaaS de escritório de agentes de IA especializados em licitações públicas. Automatiza as três grandes etapas de uma proposta licitatória — análise de edital, elaboração de proposta técnica e montagem de orçamento — por meio de agentes autônomos que colaboram entre si.
+
+> "Você sobe o edital. O BidMind entrega a proposta."
+
+---
+
+## 2. Fluxo Principal
+
+```
+[Login] → [Dashboard / Kanban] → [Nova Licitação]
+    ↓
+[Upload do Edital (PDF/DOCX)]
+    ↓
+[Agente 1 — Análise de Edital]
+    ↓ (passa contexto estruturado)
+[Agente 2 — Elaboração de Proposta Técnica]
+    ↓ (passa proposta técnica aprovada)
+[Agente 3 — Montagem de Orçamento]
+    ↓
+[Revisão Humana + Aprovação]
+    ↓
+[Exportação final (PDF/DOCX)]
+```
+
+---
+
+## 3. Arquitetura do Sistema
+
+### Visão macro
+
+```
+Browser (Next.js)
+    │
+    ▼
+Nginx (reverse proxy + SSL)
+    ├──► API (Fastify / Node.js)
+    │        ├──► PostgreSQL + pgvector
+    │        └──► Redis (cache + filas BullMQ)
+    │                   │
+    │                   ▼
+    │            Workers (Agentes de IA)
+    │                   └──► OpenAI API (gpt-4o-mini)
+    │
+    └──► Storage (Cloudflare R2)
+              └── editais, propostas, templates
+```
+
+### Separação de serviços
+
+| Serviço | Tecnologia | Responsabilidade |
+|---|---|---|
+| `web` | Next.js 14+ | Interface do usuário |
+| `api` | Fastify (Node.js) | REST API, autenticação, regras de negócio |
+| `workers` | Node.js | Execução dos agentes de IA (BullMQ consumers) |
+| `postgres` | PostgreSQL 16 + pgvector | Banco de dados principal |
+| `redis` | Redis 7 | Filas de jobs e cache |
+| `nginx` | Nginx | Proxy reverso, SSL termination |
+
+---
+
+## 4. Design dos Agentes
+
+### Arquitetura de comunicação
+
+Os agentes são **sequenciais com contexto compartilhado**. Cada agente lê o output do anterior e adiciona ao estado da licitação.
+
+```
+Contexto da Licitação (shared state — PostgreSQL)
+├── edital_estruturado      ← output do Agente 1
+├── proposta_tecnica        ← output do Agente 2
+├── orcamento               ← output do Agente 3
+├── historico_agentes[]     ← log de raciocínio de cada agente
+└── arquivos_gerados[]      ← documentos exportáveis
+```
+
+### Agente 1 — Analista de Edital
+
+| Campo | Detalhe |
+|---|---|
+| **Input** | Arquivo(s) do edital (PDF/DOCX) |
+| **Output** | `edital_estruturado` (JSON) + Sumário legível |
+| **Modelo** | gpt-4o-mini (OpenAI — escolha de baixo custo para MVP/testes; trocável via env `OPENAI_MODEL`) |
+| **Capacidades** | Extração de requisitos, prazos, penalidades, critérios de avaliação |
+
+Campos extraídos no `edital_estruturado`:
+```json
+{
+  "objeto": "",
+  "orgao_licitante": "",
+  "prazo_proposta": "",
+  "modalidade": "",
+  "requisitos_tecnicos": [],
+  "requisitos_habilitacao": [],
+  "criterios_avaliacao": "",
+  "exigencias_formatacao": [],
+  "itens_licitados": [],
+  "perguntas_esclarecimento": []
+}
+```
+
+### Agente 2 — Redator de Proposta Técnica
+
+| Campo | Detalhe |
+|---|---|
+| **Input** | `edital_estruturado` + template da empresa |
+| **Output** | `proposta_tecnica` (JSON por seção) + DOCX |
+| **Modelo** | gpt-4o-mini (OpenAI — escolha de baixo custo para MVP/testes; trocável via env `OPENAI_MODEL`) |
+| **Capacidades** | Redação técnica, adequação ao template, geração de seções padrão |
+
+Seções geradas: Apresentação da empresa, Metodologia, Equipe técnica, Cronograma, Qualificações.
+
+### Agente 3 — Montador de Orçamento
+
+| Campo | Detalhe |
+|---|---|
+| **Input** | `edital_estruturado` + `proposta_tecnica` + template de orçamento |
+| **Output** | `orcamento` (JSON) + XLSX/DOCX |
+| **Modelo** | gpt-4o-mini (OpenAI — escolha de baixo custo para MVP/testes; trocável via env `OPENAI_MODEL`) |
+| **Capacidades** | Extração de itens e quantitativos, planilha orçamentária, BDI e encargos |
+
+---
+
+## 5. Interface — Kanban
+
+### Colunas
+
+| Coluna | Gatilho de entrada |
+|---|---|
+| `📥 Aguardando Edital` | Licitação criada |
+| `🔍 Analisando Edital` | Edital recebido, Agente 1 em execução |
+| `✍️ Elaborando Proposta Técnica` | Agente 2 em execução |
+| `💰 Montando Orçamento` | Agente 3 em execução |
+| `👀 Revisão Humana` | Todos os agentes concluídos |
+| `✅ Concluído` | Proposta aprovada e exportada |
+
+### Card de licitação
+
+- Título (editável)
+- Indicador de agente ativo (loading animado)
+- Prazo da licitação (com alerta de vencimento)
+- Acesso ao detalhe
+- Log de atividades dos agentes
+
+### Tela de Revisão Humana
+
+- Visualização lado a lado: Edital original × Proposta gerada
+- Editor inline para proposta técnica
+- Editor de planilha inline para orçamento
+- Botão "Aprovar e Exportar"
+- Botão "Reprocessar Agente X" com campo de instruções adicionais
+
+---
+
+## 6. Modelo de Dados
+
+```sql
+-- Tenants e usuários
+tenants (id, nome, plano, created_at)
+users   (id, tenant_id, email, role, created_at)
+
+-- Licitações
+licitacoes (
+  id, tenant_id, titulo, orgao_licitante,
+  prazo_proposta, status, created_by, created_at
+)
+
+-- Arquivos (editais, templates, documentos gerados)
+arquivos (
+  id, licitacao_id,
+  tipo          -- edital | proposta_tecnica | orcamento | template
+  storage_key, nome_original, created_at
+)
+
+-- Contexto compartilhado entre agentes
+licitacao_contexto (
+  id, licitacao_id,
+  edital_estruturado    JSONB,
+  proposta_tecnica      JSONB,
+  orcamento             JSONB,
+  updated_at
+)
+
+-- Log de execução dos agentes
+agente_logs (
+  id, licitacao_id,
+  agente        -- 1 | 2 | 3
+  status        -- running | success | error
+  prompt        TEXT,
+  resposta      TEXT,
+  duracao_ms, created_at
+)
+```
+
+---
+
+## 7. Stack Tecnológica
+
+### Frontend
+- **Next.js 14+** (App Router)
+- **Tailwind CSS** + **shadcn/ui**
+- **Zustand** — estado global (Kanban)
+- **TanStack Query** — cache e sync com API
+
+### Backend
+- **Fastify** (Node.js) — API REST
+- **Prisma** — ORM e migrations
+- **BullMQ** — filas e orquestração dos agentes
+- **Zod** — validação de schemas
+
+### IA
+- **OpenAI API** (gpt-4o-mini — modelo de baixo custo para MVP/testes; configurável via `OPENAI_MODEL`)
+- **LlamaIndex** — pipeline de documentos e chunking
+- **Unstructured.io** — extração de texto de PDFs complexos
+
+### Dados e Storage
+- **PostgreSQL 16** + **pgvector**
+- **Redis 7**
+- **Cloudflare R2** — armazenamento de arquivos
+
+### Infra
+- **Docker** + **Docker Compose**
+- **Nginx** + **Certbot**
+- **GitHub Container Registry**
+
+---
+
+## 8. Infraestrutura
+
+### Topologia
+
+```
+Internet
+    │
+    ▼
+Nginx (80/443)
+    ├──► web:3000
+    └──► api:3001
+              │
+        ┌─────┴─────┐
+        ▼           ▼
+   postgres      redis
+                   │
+                   ▼
+              workers (BullMQ)
+                   └──► OpenAI API
+```
+
+### Ambientes
+
+| Ambiente | Branch | KVM | Domínio |
+|---|---|---|---|
+| Staging | `staging` | 2 vCPU / 4GB RAM | staging.bidmind.com.br |
+| Produção | `main` | 4 vCPU / 8GB RAM | bidmind.com.br |
+
+---
+
+## 9. Estrutura do Monorepo
+
+```
+bidmind/
+├── .github/workflows/
+│   ├── ci.yml
+│   ├── deploy-staging.yml
+│   └── deploy-production.yml
+├── apps/
+│   ├── web/          # Next.js
+│   ├── api/          # Fastify
+│   └── workers/      # Agentes de IA
+├── packages/
+│   ├── types/        # Tipos TypeScript compartilhados
+│   └── config/       # ESLint, tsconfig base
+├── infra/
+│   ├── docker/
+│   ├── nginx/
+│   └── scripts/
+└── docs/spec/
+```
+
+---
+
+## 10. Convenções
+
+### Tags de imagem Docker
+
+| Tag | Significado |
+|---|---|
+| `latest` | Versão atual em produção |
+| `previous` | Versão anterior (rollback) |
+| `staging` | Versão atual em staging |
+| `sha-<commit>` | Tag imutável por commit |
+
+### Padrão de branches
+
+| Padrão | Uso |
+|---|---|
+| `feat/nome` | Nova funcionalidade |
+| `fix/nome` | Correção de bug |
+| `chore/nome` | Manutenção |
+| `hotfix/nome` | Correção urgente em produção |

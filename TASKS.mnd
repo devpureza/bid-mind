@@ -1,0 +1,266 @@
+# BidMind — Tasks (v0.1)
+
+## Marco 1 — Base do Projeto 
+
+### INFRA-01 · Setup do repositório
+
+- [x] Criar repositório privado no GitHub
+- [x] Inicializar monorepo com Turborepo
+- [x] Criar estrutura de pastas: `apps/web`, `apps/api`, `apps/workers`, `packages/types`, `packages/config`, `infra/`
+- [x] Configurar `turbo.json` com pipelines de `build`, `dev`, `lint`, `test`
+- [x] Configurar `tsconfig` base em `packages/config` e estender em cada app
+- [x] Configurar ESLint + Prettier compartilhados
+- [x] Criar `.env.example` com todas as variáveis necessárias
+- [x] Criar `.gitignore` adequado (ignorar `.env`, `node_modules`, `.next`, `dist`)
+
+---
+
+### INFRA-02 · CI/CD com GitHub Actions
+
+- [x] Criar workflow `ci.yml` — roda em todo PR: lint + type-check + build
+- [x] Criar workflow `deploy-staging.yml` — merge na `staging`: build Docker → push registry → SSH deploy
+- [x] Criar workflow `deploy-production.yml` — merge na `main`: build Docker → push registry → SSH deploy
+- [ ] Configurar GitHub Environments: `staging` e `production` _(rodar `infra/scripts/github-setup.sh` ou seguir `docs/spec/github-setup.md`)_
+- [ ] Adicionar secrets no GitHub: `STAGING_HOST`, `STAGING_USER`, `STAGING_SSH_KEY`, `PRODUCTION_HOST`, `PRODUCTION_USER`, `PRODUCTION_SSH_KEY`, `REGISTRY_USER`, `REGISTRY_PASSWORD`, `OPENAI_API_KEY` _(idem)_
+- [ ] Configurar branch protection na `main`: PR obrigatório + status checks verdes + no bypass _(idem; aguarda repo ter o primeiro push)_
+- [ ] Configurar branch protection na `staging`: PR obrigatório _(idem)_
+- [x] Criar arquivo `CODEOWNERS`
+
+---
+
+### INFRA-03 · Setup das KVMs
+
+- [ ] Provisionar KVM Staging (Ubuntu 24.04 / 2 vCPU / 4GB RAM)
+- [ ] Provisionar KVM Produção (Ubuntu 24.04 / 4 vCPU / 8GB RAM)
+- [ ] Criar e rodar `infra/scripts/setup-vm.sh` nas duas VMs
+- [ ] Instalar Docker + Docker Compose nas VMs
+- [ ] Instalar e configurar Nginx nas VMs
+- [ ] Instalar Certbot na VM de produção
+- [ ] Configurar UFW: liberar apenas portas 22, 80 e 443
+- [ ] Instalar Fail2ban nas VMs
+- [ ] Criar par de chaves SSH para deploy automático e adicionar como secrets no GitHub
+- [ ] Criar estrutura de diretórios `/opt/bidmind/` nas VMs
+- [ ] Criar `docker-compose.staging.yml` e `docker-compose.production.yml`
+- [ ] Criar `infra/nginx/staging.conf` e `infra/nginx/production.conf`
+- [ ] Criar `infra/scripts/deploy.sh` (pull imagens + up + migrate + prune)
+- [ ] Criar `infra/scripts/rollback.sh`
+- [ ] Testar deploy manual na VM Staging antes de automatizar
+
+---
+
+### INFRA-04 · Banco de Dados
+
+- [ ] Criar schema inicial com Prisma: `tenants`, `users`, `licitacoes`, `arquivos`, `licitacao_contexto`, `agente_logs`
+- [ ] Configurar pgvector na instância Postgres
+- [ ] Criar migration inicial e testar localmente com `docker-compose.yml` de dev
+- [ ] Criar script de seed para dados de desenvolvimento
+
+---
+
+### AUTH-01 · Autenticação — Backend
+
+- [ ] Instalar e configurar `@fastify/jwt` na API
+- [ ] Criar endpoint `POST /auth/register`
+- [ ] Criar endpoint `POST /auth/login` (retorna JWT)
+- [ ] Criar endpoint `POST /auth/refresh`
+- [ ] Criar endpoint `POST /auth/forgot-password`
+- [ ] Criar endpoint `POST /auth/reset-password`
+- [ ] Implementar middleware de autenticação nas rotas protegidas
+- [ ] Implementar OAuth com Google
+
+---
+
+### AUTH-02 · Autenticação — Frontend
+
+- [ ] Criar tela de Login (e-mail + senha + botão Google)
+- [ ] Criar tela de Cadastro
+- [ ] Criar tela de Esqueci minha senha
+- [ ] Criar tela de Redefinir senha (via link por e-mail)
+- [ ] Implementar persistência de sessão (token no cookie httpOnly)
+- [ ] Implementar redirect para login em rotas protegidas
+- [ ] Testar fluxo completo de autenticação end-to-end
+
+---
+
+### ONBOARD-01 · Onboarding e Templates
+
+- [ ] Criar tela de onboarding pós-cadastro (wizard de 3 passos)
+- [ ] Implementar upload de template de proposta técnica (DOCX)
+- [ ] Implementar upload de template de orçamento (DOCX/XLSX)
+- [ ] Armazenar templates no R2 e vincular ao tenant no banco
+- [ ] Criar endpoint `GET /tenant/templates`
+- [ ] Criar endpoint `POST /tenant/templates`
+- [ ] Criar tela de configurações para substituir templates após onboarding
+
+---
+
+## Marco 2 — Kanban e Licitações 
+
+### KANBAN-01 · Dashboard Kanban
+
+- [ ] Criar layout base do dashboard (sidebar + área principal)
+- [ ] Implementar componente de coluna do Kanban
+- [ ] Implementar componente de card de licitação
+- [ ] Implementar drag and drop entre colunas (dnd-kit)
+- [ ] Criar endpoint `GET /licitacoes` com filtro por status
+- [ ] Criar endpoint `PATCH /licitacoes/:id/status`
+- [ ] Implementar polling de atualização do Kanban (máx. 5s)
+- [ ] Exibir indicador de agente ativo no card (loading animado)
+- [ ] Exibir prazo da licitação com alerta visual de vencimento
+- [ ] Implementar botão "Nova Licitação" que abre modal de criação
+
+---
+
+### LIC-01 · Criação e Upload de Edital
+
+- [ ] Criar modal de nova licitação (título, órgão, prazo)
+- [ ] Criar endpoint `POST /licitacoes`
+- [ ] Implementar componente de upload de arquivos (drag and drop + click)
+- [ ] Criar endpoint `POST /licitacoes/:id/arquivos` (upload para R2)
+- [ ] Aceitar múltiplos arquivos por licitação (até 10)
+- [ ] Validar tipos aceitos: PDF e DOCX
+- [ ] Validar tamanho máximo por arquivo
+- [ ] Exibir barra de progresso de upload
+
+---
+
+## Marco 3 — Agente 1 
+
+### AGENT1-01 · Pipeline do Agente 1
+
+- [ ] Configurar Unstructured.io para extração de texto de PDFs
+- [ ] Implementar chunking inteligente de documentos longos (LlamaIndex)
+- [ ] Criar fila BullMQ `analyze-edital`
+- [ ] Implementar consumer do job `analyze-edital` em `apps/workers`
+- [ ] Escrever prompt do Agente 1 para extração estruturada em JSON
+- [ ] Validar schema do `edital_estruturado` com Zod antes de salvar
+- [ ] Salvar `edital_estruturado` em `licitacao_contexto`
+- [ ] Salvar log completo (prompt + resposta + duração) em `agente_logs`
+- [ ] Mover card para "Analisando Edital" ao iniciar o job
+- [ ] Mover card para "Elaborando Proposta Técnica" ao concluir
+
+---
+
+### AGENT1-02 · Interface do Agente 1
+
+- [ ] Criar tela de detalhe da licitação com aba "Edital"
+- [ ] Exibir Sumário de Edital gerado pelo agente
+- [ ] Exibir campos extraídos com edição inline
+- [ ] Exibir lista de perguntas de esclarecimento (se houver)
+- [ ] Botão "Confirmar e avançar para Proposta Técnica"
+- [ ] Exibir status de processamento com indicador visual
+
+---
+
+## Marco 4 — Agente 2 
+
+### AGENT2-01 · Pipeline do Agente 2
+
+- [ ] Criar fila BullMQ `generate-proposta-tecnica`
+- [ ] Implementar consumer do job em `apps/workers`
+- [ ] Implementar leitura e interpretação do template DOCX da empresa
+- [ ] Escrever prompt do Agente 2 para geração de proposta por seções
+- [ ] Estruturar output como JSON com seções independentes
+- [ ] Gerar DOCX formatado aplicando estilos do template (python-docx ou similar)
+- [ ] Fazer upload do DOCX gerado para o R2 e registrar em `arquivos`
+- [ ] Salvar `proposta_tecnica` em `licitacao_contexto`
+- [ ] Salvar log em `agente_logs`
+- [ ] Mover card para "Montando Orçamento" ao concluir
+
+---
+
+### AGENT2-02 · Interface do Agente 2
+
+- [ ] Criar aba "Proposta Técnica" na tela de detalhe da licitação
+- [ ] Exibir proposta gerada dividida por seções
+- [ ] Implementar editor inline por seção
+- [ ] Salvar edições de seções sem reprocessar o agente inteiro
+- [ ] Botão "Reprocessar seção" com campo de instrução adicional
+- [ ] Botão "Confirmar e avançar para Orçamento"
+- [ ] Link de download do DOCX gerado
+
+---
+
+## Marco 5 — Agente 3
+
+### AGENT3-01 · Pipeline do Agente 3
+
+- [ ] Criar fila BullMQ `generate-orcamento`
+- [ ] Implementar consumer do job em `apps/workers`
+- [ ] Escrever prompt do Agente 3 para extração de itens e quantitativos
+- [ ] Implementar lógica de aplicação de BDI e encargos (configuráveis)
+- [ ] Gerar planilha XLSX formatada com o template da empresa
+- [ ] Implementar alerta quando item obrigatório do edital não for orçado
+- [ ] Fazer upload do XLSX gerado para o R2
+- [ ] Salvar `orcamento` em `licitacao_contexto`
+- [ ] Salvar log em `agente_logs`
+- [ ] Mover card para "Revisão Humana" ao concluir
+
+---
+
+### AGENT3-02 · Interface do Agente 3
+
+- [ ] Criar aba "Orçamento" na tela de detalhe da licitação
+- [ ] Exibir planilha de orçamento em tabela editável inline
+- [ ] Exibir alertas de itens obrigatórios ausentes
+- [ ] Campos de configuração de BDI (%) e encargos (%)
+- [ ] Botão "Reprocessar Orçamento" com instrução adicional
+- [ ] Link de download do XLSX gerado
+
+---
+
+## Marco 6 — Revisão e Exportação (Semana 8)
+
+### REVIEW-01 · Tela de Revisão Humana
+
+- [ ] Criar layout lado a lado: PDF viewer (edital) × Proposta gerada
+- [ ] Implementar PDF viewer inline (react-pdf)
+- [ ] Unificar abas Proposta Técnica e Orçamento na tela de revisão
+- [ ] Botão "Reprocessar Agente X" com modal de instrução
+- [ ] Confirmação antes de reprocessar se outputs posteriores serão perdidos
+- [ ] Botão "Aprovar e Exportar" que move card para "Concluído"
+
+---
+
+### EXPORT-01 · Exportação de Documentos
+
+- [ ] Criar endpoint `GET /licitacoes/:id/exportar/proposta` (retorna DOCX)
+- [ ] Criar endpoint `GET /licitacoes/:id/exportar/orcamento` (retorna XLSX)
+- [ ] Criar endpoint `GET /licitacoes/:id/exportar/completo` (retorna ZIP)
+- [ ] Implementar geração de PDF a partir do DOCX (LibreOffice headless)
+- [ ] Criar botões de exportação na tela de revisão
+- [ ] Criar botão de exportação rápida no card do Kanban (concluídos)
+
+---
+
+## Marco 7 — Gestão de Usuários e Polish 
+
+### ADMIN-01 · Gestão de Usuários
+
+- [ ] Criar tela de gerenciamento de equipe (somente Admin)
+- [ ] Criar endpoint `POST /tenant/usuarios/convite` (envia e-mail de convite)
+- [ ] Criar endpoint `PATCH /tenant/usuarios/:id/perfil`
+- [ ] Criar endpoint `DELETE /tenant/usuarios/:id`
+- [ ] Criar página de aceitação de convite (via link no e-mail)
+
+---
+
+### POLISH-01 · UX e Robustez
+
+- [ ] Implementar tratamento de erros global na API (mensagens padronizadas)
+- [ ] Implementar toast notifications no frontend para ações e erros
+- [ ] Adicionar loading states em todas as ações assíncronas
+- [ ] Implementar página 404 e tela de erro genérica
+- [ ] Revisar responsividade das telas principais (desktop-first, funcional em tablet)
+- [ ] Adicionar favicon, logo e meta tags básicas
+
+---
+
+### POLISH-02 · Testes e Segurança
+
+- [ ] Escrever testes de integração nos endpoints críticos (auth, upload, agentes)
+- [ ] Revisar headers de segurança no Nginx (HSTS, X-Frame-Options, CSP)
+- [ ] Auditar histórico do Git para garantir que nenhum secret foi commitado
+- [ ] Testar fluxo de rollback manualmente na VM Staging
+- [ ] Documentar runbook de operação: deploy, rollback, restart de serviço
+- [ ] Rodar testes com 2–3 usuários reais e ajustar pontos críticos de UX

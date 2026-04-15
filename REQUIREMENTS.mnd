@@ -1,0 +1,170 @@
+# BidMind — Requirements 
+
+## 1. Usuários-Alvo
+
+| Perfil | Descrição |
+|---|---|
+| **Gestor de licitações** | Usuário primário. Acompanha o processo, revisa e aprova as saídas dos agentes. |
+| **Analista técnico** | Pode intervir manualmente em etapas específicas. |
+| **Administrador** | Configura a conta, templates e permissões da equipe. |
+
+---
+
+## 2. Requisitos Funcionais
+
+### RF-01 — Autenticação e Onboarding
+
+- O sistema deve permitir login com e-mail/senha
+- O sistema deve oferecer recuperação de senha via e-mail
+- O sistema deve guiar o usuário num onboarding para upload de templates padrão de proposta técnica e orçamento
+- O sistema deve suportar dois perfis de acesso: Admin e Analista
+
+**Critérios de aceite:**
+- [ ] Usuário consegue criar conta, fazer login e acessar o dashboard em menos de 2 minutos
+- [ ] Templates enviados no onboarding são persistidos e utilizados pelos agentes nas gerações seguintes
+
+---
+
+### RF-02 — Dashboard Kanban
+
+- O sistema deve exibir um Kanban com as licitações do tenant organizadas por status
+- O Kanban deve ter 6 colunas fixas: Aguardando Edital, Analisando Edital, Elaborando Proposta Técnica, Montando Orçamento, Revisão Humana, Concluído
+- Os cards devem se mover automaticamente entre colunas conforme os agentes avançam
+- O usuário pode pausar/cancelar quando o card estiver em uma etapa não-humanizada
+- Cada card deve exibir: título, agente ativo, prazo e alerta de vencimento e ao clicar, um log.
+- O Kanban deve ser atualizado em tempo real (polling ≤ 5s inicialmente, depois WebSocket)
+
+**Critérios de aceite:**
+- [ ] Cards se movem automaticamente sem refresh manual
+- [ ] Drag and drop funciona para forçar reprocessamento
+- [ ] Atualização em tempo real < 5 segundos
+
+---
+
+### RF-03 — Upload e Processamento de Edital
+
+- O usuário deve poder criar uma nova licitação e fazer upload do edital
+- O sistema deve aceitar arquivos PDF e DOCX
+- O sistema deve aceitar até 50 arquivos por licitação (volumes/anexos)
+- O sistema deve extrair e estruturar automaticamente: objeto, órgão licitante, prazo, requisitos técnicos, critérios de avaliação e exigências de formatação
+- O sistema deve gerar um Sumário de Edital legível antes de prosseguir
+- O usuário deve poder corrigir campos extraídos incorretamente
+- O processamento deve acontecer de forma secundária, sem travar o ambiente do usuário
+
+**Critérios de aceite:**
+- [ ] PDFs com até 200 páginas processados em menos de 60 segundos
+- [ ] Precisão mínima de 90% nos campos estruturados (validado nos primeiros 20 casos reais)
+- [ ] Usuário consegue corrigir qualquer campo antes de liberar ao próximo agente
+
+---
+
+### RF-04 — Agente 1: Analista de Edital
+
+- O agente deve ler e interpretar os arquivos do edital
+- O agente deve produzir o `edital_estruturado` em JSON com todos os campos mapeados
+- O agente deve gerar um sumário legível para o usuário
+- O agente deve listar perguntas de esclarecimento quando houver ambiguidade
+
+**Critérios de aceite:**
+- [ ] Saída JSON válida e com todos os campos obrigatórios preenchidos ou marcados como ausentes
+- [ ] Sumário exibido no card antes de avançar para o Agente 2
+
+---
+
+### RF-05 — Agente 2: Redator de Proposta Técnica
+
+- O agente deve receber o `edital_estruturado` e o template da empresa
+- O agente deve gerar uma proposta técnica completa com as seções: Apresentação, Metodologia, Equipe técnica, Cronograma e Qualificações
+- O agente deve seguir o layout e estilos do template cadastrado
+- O usuário deve poder editar seções individualmente antes de liberar ao Agente 3
+
+**Critérios de aceite:**
+- [ ] Proposta gerada cobre todos os requisitos técnicos identificados no edital
+- [ ] Documento gerado (DOCX) segue o template visual da empresa
+- [ ] Edição inline de seções salva sem reprocessar o agente inteiro
+
+---
+
+### RF-06 — Agente 3: Montador de Orçamento
+
+- O agente deve receber o `edital_estruturado` e a `proposta_tecnica`
+- O agente deve extrair todos os itens licitados e seus quantitativos do edital
+- O agente deve preencher a planilha orçamentária seguindo o template da empresa
+- O agente deve aplicar BDI e encargos (configuráveis pelo usuário)
+- O agente deve alertar quando um item obrigatório do edital não foi orçado
+
+**Critérios de aceite:**
+- [ ] Todos os itens do edital aparecem na planilha
+- [ ] Alerta visível quando algum item obrigatório está ausente
+- [ ] Planilha exportada abre corretamente no Excel e no LibreOffice
+
+---
+
+### RF-07 — Revisão Humana
+
+- O sistema deve exibir uma tela de revisão com edital original e proposta lado a lado
+- O usuário deve poder editar a proposta técnica e o orçamento inline
+- O usuário deve poder reprocessar um agente específico com instruções adicionais
+- O usuário deve poder aprovar e exportar quando estiver satisfeito
+
+**Critérios de aceite:**
+- [ ] Aprovação sem precisar abrir outro software
+- [ ] Reprocessamento de um agente não apaga outputs dos demais sem confirmação explícita
+
+---
+
+### RF-08 — Exportação
+
+- O sistema deve exportar a proposta técnica em DOCX formatado
+- O sistema deve exportar o orçamento em XLSX ou DOCX formatado
+- O sistema deve oferecer exportação em ZIP com todos os documentos
+- O sistema deve permitir geração de PDF a partir de qualquer documento
+
+**Critérios de aceite:**
+- [ ] Documento exportado abre corretamente no Word e no LibreOffice
+- [ ] Layout fiel ao template cadastrado (fontes, margens, logotipo)
+
+---
+
+### RF-09 — Templates da Empresa
+
+- O Administrador deve poder cadastrar templates de proposta técnica e orçamento no onboarding e nas configurações
+- Os templates devem ser usados como base visual e estrutural pelos Agentes 2 e 3
+- O sistema deve suportar templates em formato DOCX
+
+---
+
+### RF-10 — Gestão de Usuários (Admin)
+
+- O Admin deve poder convidar novos usuários por e-mail
+- O Admin deve poder definir o perfil de cada usuário: Admin ou Analista
+- O Admin deve poder remover usuários do tenant
+
+---
+
+## 3. Requisitos Não-Funcionais
+
+| ID | Requisito | Meta |
+|---|---|---|
+| RNF-01 | **Performance** | Processamento de edital (até 200 páginas) em < 60s |
+| RNF-02 | **Disponibilidade** | 99,5% uptime (SLA básico para MVP) |
+| RNF-03 | **Segurança** | Documentos criptografados em repouso (AES-256) e em trânsito (TLS 1.3) |
+| RNF-04 | **Privacidade** | Dados de licitação isolados por tenant (multi-tenancy) |
+| RNF-05 | **Escalabilidade** | Workers stateless para escalar horizontalmente |
+| RNF-06 | **Auditoria** | Todos os outputs dos agentes com log de prompt + resposta armazenados |
+| RNF-07 | **Recuperação** | Rollback de deploy em < 5 minutos |
+| RNF-08 | **CI/CD** | Branch `main` 100% protegida — merge apenas com Actions verdes |
+
+---
+
+## 4. Fora do Escopo (v1)
+
+Os itens abaixo são intencionalmente excluídos da v1:
+
+- Integração com portais de licitação (ComprasNet, BLL, etc.) para busca automática de editais
+- Assinatura digital de documentos
+- Banco de preços históricos e cotações automatizadas
+- App mobile
+- Módulo de acompanhamento pós-proposta (resultado, recursos, contratos)
+- Colaboração em tempo real (múltiplos usuários editando simultaneamente)
+- Integração com ERPs ou sistemas legados
