@@ -1,0 +1,102 @@
+# =============================================================================
+# BidMind · stack production
+# Localização na VM: /opt/bidmind/compose/docker-compose.production.yml
+# Variáveis em /opt/bidmind/.env (vide .env.example)
+# =============================================================================
+
+name: bidmind-production
+
+services:
+  web:
+    image: ghcr.io/${GHCR_OWNER:-devpureza}/bidmind-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [bidmind]
+    ports:
+      - "127.0.0.1:3000:3000"
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  api:
+    image: ghcr.io/${GHCR_OWNER:-devpureza}/bidmind-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [bidmind]
+    ports:
+      - "127.0.0.1:3001:3001"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  workers:
+    image: ghcr.io/${GHCR_OWNER:-devpureza}/bidmind-workers:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [bidmind]
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 1g
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bidmind}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD em .env}
+      POSTGRES_DB: ${POSTGRES_DB:-bidmind}
+    volumes:
+      - ../data/postgres:/var/lib/postgresql/data
+    networks: [bidmind]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bidmind}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - ../data/redis:/data
+    networks: [bidmind]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+networks:
+  bidmind:
+    driver: bridge

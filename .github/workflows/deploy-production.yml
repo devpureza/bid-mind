@@ -72,6 +72,9 @@ jobs:
       url: https://bidmind.com.br
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup SSH key
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -82,7 +85,14 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Sync infra/{docker,nginx,scripts} to VM
+        run: |
+          rsync -az --delete infra/docker/  ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/bidmind/compose/
+          rsync -az --delete infra/nginx/   ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/bidmind/nginx/
+          rsync -az --delete infra/scripts/ ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/bidmind/scripts/
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "chmod +x /opt/bidmind/scripts/*.sh"
+
       - name: Run deploy script on production
         run: |
           ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} \
-            "cd /opt/bidmind && ENVIRONMENT=production IMAGE_TAG=sha-${{ github.sha }} ./scripts/deploy.sh"
+            "ENVIRONMENT=production IMAGE_TAG=sha-${{ github.sha }} REGISTRY_USER='${{ secrets.REGISTRY_USER }}' REGISTRY_PASSWORD='${{ secrets.REGISTRY_PASSWORD }}' /opt/bidmind/scripts/deploy.sh"

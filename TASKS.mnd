@@ -30,21 +30,24 @@
 
 ### INFRA-03 · Setup das KVMs
 
-- [ ] Provisionar KVM Staging (Ubuntu 24.04 / 2 vCPU / 4GB RAM)
-- [ ] Provisionar KVM Produção (Ubuntu 24.04 / 4 vCPU / 8GB RAM)
-- [ ] Criar e rodar `infra/scripts/setup-vm.sh` nas duas VMs
-- [ ] Instalar Docker + Docker Compose nas VMs
-- [ ] Instalar e configurar Nginx nas VMs
-- [ ] Instalar Certbot na VM de produção
-- [ ] Configurar UFW: liberar apenas portas 22, 80 e 443
-- [ ] Instalar Fail2ban nas VMs
-- [ ] Criar par de chaves SSH para deploy automático e adicionar como secrets no GitHub
-- [ ] Criar estrutura de diretórios `/opt/bidmind/` nas VMs
-- [ ] Criar `docker-compose.staging.yml` e `docker-compose.production.yml`
-- [ ] Criar `infra/nginx/staging.conf` e `infra/nginx/production.conf`
-- [ ] Criar `infra/scripts/deploy.sh` (pull imagens + up + migrate + prune)
-- [ ] Criar `infra/scripts/rollback.sh`
-- [ ] Testar deploy manual na VM Staging antes de automatizar
+- [ ] Provisionar KVM Staging (Ubuntu 24.04 / 2 vCPU / 4GB RAM) _(depende de VM real)_
+- [ ] Provisionar KVM Produção (Ubuntu 24.04 / 4 vCPU / 8GB RAM) _(depende de VM real)_
+- [x] Criar `infra/scripts/setup-vm.sh` _(falta rodar nas duas VMs)_
+- [x] Instalar Docker + Docker Compose nas VMs _(coberto por setup-vm.sh; falta rodar)_
+- [x] Instalar e configurar Nginx nas VMs _(setup-vm.sh + `infra/nginx/*.conf`; falta aplicar)_
+- [x] Instalar Certbot na VM de produção _(setup-vm.sh; falta `certbot --nginx`)_
+- [x] Configurar UFW: liberar apenas portas 22, 80 e 443 _(setup-vm.sh)_
+- [x] Instalar Fail2ban nas VMs _(setup-vm.sh)_
+- [x] Criar par de chaves SSH para deploy automático e adicionar como secrets no GitHub _(`infra/scripts/gen-deploy-keys.sh`; falta rodar e cadastrar secrets)_
+- [x] Criar estrutura de diretórios `/opt/bidmind/` nas VMs _(setup-vm.sh)_
+- [x] Criar `docker-compose.staging.yml` e `docker-compose.production.yml`
+- [x] Criar `infra/nginx/staging.conf` e `infra/nginx/production.conf`
+- [x] Criar `infra/scripts/deploy.sh` (pull imagens + up + migrate + prune)
+- [x] Criar `infra/scripts/rollback.sh`
+- [ ] Testar deploy manual na VM Staging antes de automatizar _(depende de VM)_
+
+> Bônus (necessário pelos workflows): Dockerfiles em `infra/docker/{web,api,workers}.Dockerfile` e `.dockerignore` raiz — **prontos**.
+> Doc operacional completa em `docs/spec/vm-setup.md`.
 
 ---
 

@@ -55,3 +55,6 @@ prisma/migrations/dev/
 # Misc
 tmp/
 temp/
+
+# Deploy SSH keys (gen-deploy-keys.sh)
+.deploy-keys/
