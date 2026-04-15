@@ -1,0 +1,30 @@
+# BidMind — Code Owners
+#
+# Cada PR que tocar nestes paths exige review do(s) owner(s) listado(s).
+# Sintaxe: https://docs.github.com/articles/about-codeowners
+#
+# Substituir @devpureza por outros owners conforme a equipe crescer.
+
+# Default owner — qualquer arquivo do repo
+*                       @devpureza
+
+# Infra e CI/CD
+/.github/               @devpureza
+/infra/                 @devpureza
+/turbo.json             @devpureza
+/pnpm-workspace.yaml    @devpureza
+/package.json           @devpureza
+
+# Documentação de produto e arquitetura
+/REQUIREMENTS.mnd       @devpureza
+/DESIGN.mnd             @devpureza
+/TASKS.mnd              @devpureza
+/CLAUDE.md              @devpureza
+
+# Apps
+/apps/web/              @devpureza
+/apps/api/              @devpureza
+/apps/workers/          @devpureza
+
+# Pacotes compartilhados
+/packages/              @devpureza
