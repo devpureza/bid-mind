@@ -4,9 +4,11 @@
 // Roda com: pnpm --filter @bidmind/db db:seed
 // =============================================================================
 
-import { PrismaClient, LicitacaoStatus, UserRole } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
+import argon2 from "argon2";
 
 const prisma = new PrismaClient();
+const DEV_PASSWORD = "bidmind123";
 
 async function main() {
   console.info("[seed] iniciando…");
@@ -22,28 +24,34 @@ async function main() {
   });
   console.info(`[seed] tenant: ${tenant.nome}`);
 
+  const passwordHash = await argon2.hash(DEV_PASSWORD);
+
   const admin = await prisma.user.upsert({
     where: { email: "admin@bidmind.local" },
-    update: {},
+    update: { passwordHash, nome: "Admin Dev" },
     create: {
       id: "00000000-0000-0000-0000-000000000010",
       tenantId: tenant.id,
       email: "admin@bidmind.local",
-      role: UserRole.admin,
+      nome: "Admin Dev",
+      role: "admin",
+      passwordHash,
     },
   });
 
   const analista = await prisma.user.upsert({
     where: { email: "analista@bidmind.local" },
-    update: {},
+    update: { passwordHash, nome: "Analista Dev" },
     create: {
       id: "00000000-0000-0000-0000-000000000011",
       tenantId: tenant.id,
       email: "analista@bidmind.local",
-      role: UserRole.analista,
+      nome: "Analista Dev",
+      role: "analista",
+      passwordHash,
     },
   });
-  console.info(`[seed] usuários: ${admin.email}, ${analista.email}`);
+  console.info(`[seed] usuários: ${admin.email}, ${analista.email}  (senha: ${DEV_PASSWORD})`);
 
   const licitacao = await prisma.licitacao.upsert({
     where: { id: "00000000-0000-0000-0000-000000000100" },
@@ -54,7 +62,7 @@ async function main() {
       titulo: "Pregão Eletrônico 001/2026 — Serviços de Consultoria",
       orgaoLicitante: "Prefeitura Municipal de Exemplo",
       prazoProposta: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14), // +14 dias
-      status: LicitacaoStatus.aguardando_edital,
+      status: "aguardando_edital",
       createdById: admin.id,
     },
   });

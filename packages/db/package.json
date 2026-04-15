@@ -2,6 +2,7 @@
   "name": "@bidmind/db",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
@@ -20,7 +21,8 @@
   },
   "dependencies": {
     "@bidmind/types": "workspace:*",
-    "@prisma/client": "^6.1.0"
+    "@prisma/client": "^6.1.0",
+    "argon2": "^0.41.1"
   },
   "devDependencies": {
     "@bidmind/config": "workspace:*",

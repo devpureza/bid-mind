@@ -64,14 +64,16 @@
 
 ### AUTH-01 · Autenticação — Backend
 
-- [ ] Instalar e configurar `@fastify/jwt` na API
-- [ ] Criar endpoint `POST /auth/register`
-- [ ] Criar endpoint `POST /auth/login` (retorna JWT)
-- [ ] Criar endpoint `POST /auth/refresh`
-- [ ] Criar endpoint `POST /auth/forgot-password`
-- [ ] Criar endpoint `POST /auth/reset-password`
-- [ ] Implementar middleware de autenticação nas rotas protegidas
-- [ ] Implementar OAuth com Google
+- [x] Instalar e configurar `@fastify/jwt` na API
+- [x] Criar endpoint `POST /auth/register`
+- [x] Criar endpoint `POST /auth/login` (retorna JWT)
+- [x] Criar endpoint `POST /auth/refresh`
+- [x] Criar endpoint `POST /auth/forgot-password`
+- [x] Criar endpoint `POST /auth/reset-password`
+- [x] Implementar middleware de autenticação nas rotas protegidas (`app.authenticate`, usado em `GET /auth/me`)
+- [x] Implementar OAuth com Google _(rotas registradas só quando `GOOGLE_OAUTH_CLIENT_ID/SECRET` estão setados)_
+
+> Migration `20260415130000_auth_fields` adiciona `users.password_hash`, `users.nome` e cria as tabelas `password_resets` e `oauth_accounts`. Seed agora usa argon2; senha de dev: `bidmind123`.
 
 ---
 
